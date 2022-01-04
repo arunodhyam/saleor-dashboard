@@ -13,7 +13,7 @@ import {
   saveCredentials
 } from "@saleor/utils/credentialsManagement";
 import ApolloClient from "apollo-client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "react-apollo";
 import { IntlShape } from "react-intl";
 import urlJoin from "url-join";
@@ -48,7 +48,7 @@ export function useAuthProvider({
   } = useAuth();
   const { authenticated, authenticating, user } = useAuthState();
   const [error, setError] = useState<UserContextError>();
-  const [permitCredentialsAPI, setPermitCredentialsAPI] = useState(true);
+  const permitCredentialsAPI = useRef(true);
 
   useEffect(() => {
     if (authenticating && error) {
@@ -57,8 +57,14 @@ export function useAuthProvider({
   }, [authenticating]);
 
   useEffect(() => {
-    if (!authenticated && !authenticating && permitCredentialsAPI) {
-      setPermitCredentialsAPI(false);
+    if (authenticated) {
+      permitCredentialsAPI.current = true;
+    }
+  }, [authenticated]);
+
+  useEffect(() => {
+    if (!authenticated && !authenticating && permitCredentialsAPI.current) {
+      permitCredentialsAPI.current = false;
       loginWithCredentialsManagementAPI(handleLogin);
     }
   }, [authenticated, authenticating]);
@@ -66,14 +72,8 @@ export function useAuthProvider({
   const userDetails = useQuery<UserDetails>(userDetailsQuery, {
     client: apolloClient,
     skip: !authenticated,
-    fetchPolicy: "cache-and-network"
+    fetchPolicy: "network-only"
   });
-
-  useEffect(() => {
-    if (authenticated) {
-      setPermitCredentialsAPI(true);
-    }
-  }, [authenticated]);
 
   const handleLogout = async () => {
     const result = await logout({
